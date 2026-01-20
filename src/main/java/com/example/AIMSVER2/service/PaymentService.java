@@ -44,17 +44,23 @@ public class PaymentService {
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setAmount(request.getAmount());
+        payment.setDescription(request.getDescription());
+        payment.setStatus(paymentResponse.getStatus());
+        payment.setPaymentMethod(request.getPaymentMethod());
         payment.setTransactionId(paymentResponse.getTransactionId());
+        payment.setQrCodeUrl(paymentResponse.getQrCodeUrl());
         payment.setCreatedAt(LocalDateTime.now());
+        payment.setExpiresAt(paymentResponse.getExpiresAt());
+        
+        // Generate payment code
+        String paymentCode = generatePaymentCode(request.getPaymentMethod());
+        payment.setPaymentCode(paymentCode);
         
         Payment savedPayment = paymentRepository.save(payment);
         
-        // Update response with payment ID
+        // Update response with payment ID and code
         paymentResponse.setPaymentId(savedPayment.getId());
-        
-        // Generate payment code for response (không lưu vào DB nếu không có cột)
-        String paymentCode = generatePaymentCode(request.getPaymentMethod());
-        paymentResponse.setPaymentCode(paymentCode);
+        paymentResponse.setPaymentCode(savedPayment.getPaymentCode());
         
         return paymentResponse;
     }
@@ -67,16 +73,18 @@ public class PaymentService {
         Payment payment = paymentRepository.findByTransactionId(paymentId)
             .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
         
-        // Get payment method from transaction ID or default
-        String paymentMethod = "PAYPAL"; // Default, có thể lưu trong transactionId hoặc thêm cột riêng
-        PaymentStrategy strategy = paymentStrategyFactory.getStrategy(paymentMethod);
+        PaymentStrategy strategy = paymentStrategyFactory.getStrategy(payment.getPaymentMethod());
         PaymentResponse response = strategy.confirmPayment(paymentId, payerId);
         
-        // Update payment (chỉ các trường có trong database)
+        // Update payment status
+        payment.setStatus(response.getStatus());
+        if ("COMPLETED".equals(response.getStatus())) {
+            payment.setPaidAt(LocalDateTime.now());
+        }
         paymentRepository.save(payment);
         
         response.setPaymentId(payment.getId());
-        response.setPaymentCode(generatePaymentCode(paymentMethod));
+        response.setPaymentCode(payment.getPaymentCode());
         
         return response;
     }
@@ -89,16 +97,15 @@ public class PaymentService {
         Payment payment = paymentRepository.findByTransactionId(paymentId)
             .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
         
-        // Get payment method from transaction ID or default
-        String paymentMethod = "PAYPAL"; // Default
-        PaymentStrategy strategy = paymentStrategyFactory.getStrategy(paymentMethod);
+        PaymentStrategy strategy = paymentStrategyFactory.getStrategy(payment.getPaymentMethod());
         PaymentResponse response = strategy.cancelPayment(paymentId);
         
-        // Update payment (chỉ các trường có trong database)
+        // Update payment status
+        payment.setStatus("CANCELLED");
         paymentRepository.save(payment);
         
         response.setPaymentId(payment.getId());
-        response.setPaymentCode(generatePaymentCode(paymentMethod));
+        response.setPaymentCode(payment.getPaymentCode());
         
         return response;
     }
