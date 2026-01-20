@@ -21,6 +21,7 @@ import java.util.List;
 public class PayPalPaymentStrategy implements PaymentStrategy {
     
     private final PayPalService payPalService;
+    private final com.example.AIMSVER2.config.PayPalConfig payPalConfig;
     
     @Value("${server.port:8080}")
     private String serverPort;
@@ -30,6 +31,22 @@ public class PayPalPaymentStrategy implements PaymentStrategy {
     
     @Override
     public PaymentResponse createPayment(PaymentRequest request) {
+        // Nếu bật chế độ mock, giả lập thanh toán thành công ngay
+        if (payPalConfig.isMock()) {
+            log.info("MOCK MODE: Simulating successful PayPal payment creation");
+            String mockTransactionId = "MOCK-PAY-" + System.currentTimeMillis();
+            return PaymentResponse.builder()
+                .status("COMPLETED")
+                .amount(request.getAmount())
+                .description(request.getDescription())
+                .paymentMethod("PAYPAL")
+                .transactionId(mockTransactionId)
+                .createdAt(LocalDateTime.now())
+                .message("MOCK MODE: Payment completed successfully (no PayPal redirect needed)")
+                .build();
+        }
+        
+        // Chế độ thật - gọi PayPal API
         try {
             String returnUrl = request.getReturnUrl() != null ? request.getReturnUrl() 
                 : String.format("http://localhost:%s%s/api/payment/paypal/success", serverPort, contextPath);
@@ -75,6 +92,17 @@ public class PayPalPaymentStrategy implements PaymentStrategy {
     
     @Override
     public PaymentResponse confirmPayment(String paymentId, String payerId) {
+        // Nếu bật chế độ mock, giả lập confirm thành công
+        if (payPalConfig.isMock()) {
+            log.info("MOCK MODE: Simulating successful payment confirmation");
+            return PaymentResponse.builder()
+                .status("COMPLETED")
+                .transactionId(paymentId)
+                .message("MOCK MODE: Payment confirmed successfully")
+                .build();
+        }
+        
+        // Chế độ thật - gọi PayPal API
         try {
             Payment payment = payPalService.executePayment(paymentId, payerId);
             

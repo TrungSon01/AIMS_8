@@ -16,6 +16,7 @@ public class PayPalConfig {
     private String clientId;
     private String clientSecret;
     private String mode;
+    private boolean mock = false; // Chế độ mock để test không cần PayPal thật
     
     @PostConstruct
     public void init() {

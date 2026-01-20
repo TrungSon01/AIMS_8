@@ -120,4 +120,25 @@ public class PaymentController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
+    
+    /**
+     * Endpoint để giả lập thanh toán thành công (chỉ dùng để test)
+     * Tự động mark payment là COMPLETED mà không cần PayPal
+     */
+    @PostMapping("/mock/success")
+    public ResponseEntity<Map<String, Object>> mockPaymentSuccess(@RequestParam("transactionId") String transactionId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            PaymentResponse paymentResponse = paymentService.confirmPayment(transactionId, "MOCK-PAYER-ID");
+            response.put("success", true);
+            response.put("message", "MOCK: Payment completed successfully!");
+            response.put("payment", paymentResponse);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error in mock payment: ", e);
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
 }
