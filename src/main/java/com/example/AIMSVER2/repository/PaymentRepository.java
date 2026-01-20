@@ -8,6 +8,6 @@ import java.util.Optional;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Integer> {
-    Optional<Payment> findByPaymentCode(String paymentCode);
     Optional<Payment> findByTransactionId(String transactionId);
+    // findByPaymentCode sẽ được thêm lại sau khi chạy script ALTER_PAYMENT_TABLE.sql
 }
