@@ -22,14 +22,20 @@ public class PayPalService {
     
     private APIContext getApiContext() {
         // Log để debug
-        log.debug("PayPal Config - ClientId: {}, Mode: {}", 
+        log.info("PayPal Config - ClientId: {}, Mode: {}", 
             payPalConfig.getClientId() != null ? payPalConfig.getClientId().substring(0, Math.min(10, payPalConfig.getClientId().length())) + "..." : "NULL",
             payPalConfig.getMode());
+        log.info("PayPal Config - ClientSecret: {}", 
+            payPalConfig.getClientSecret() != null ? "***CONFIGURED***" : "NULL");
         
         if (payPalConfig.getClientId() == null || payPalConfig.getClientSecret() == null) {
-            throw new IllegalStateException("PayPal credentials are not configured. Please check application.properties");
+            log.error("PayPal credentials are null! ClientId: {}, ClientSecret: {}", 
+                payPalConfig.getClientId(), payPalConfig.getClientSecret());
+            throw new IllegalStateException("PayPal credentials are not configured. Please check application.properties. Use format: paypal.client-id and paypal.client-secret");
         }
         
+        // PayPal SDK tự động xử lý OAuth2 token với grant_type=client_credentials
+        // Không cần gửi grant_type manually
         APIContext apiContext = new APIContext(
             payPalConfig.getClientId(),
             payPalConfig.getClientSecret(),
