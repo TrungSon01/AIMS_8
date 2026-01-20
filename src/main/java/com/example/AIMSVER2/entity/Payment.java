@@ -19,23 +19,23 @@ public class Payment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
     
-    @Column(unique = true, length = 50)
+    @Column(name = "paymentCode", unique = true, length = 50)
     private String paymentCode;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "orderId", nullable = false)
     private Order order;
     
-    @Column(nullable = false, columnDefinition = "DECIMAL(10,2)")
+    @Column(name = "amount", nullable = false, columnDefinition = "DECIMAL(10,2)")
     private BigDecimal amount;
     
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
     
-    @Column(length = 20)
+    @Column(name = "status", length = 20)
     private String status;
     
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "qrCodeUrl", columnDefinition = "TEXT")
     private String qrCodeUrl;
     
     @Column(name = "createdAt", columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
@@ -47,9 +47,9 @@ public class Payment {
     @Column(name = "paidAt")
     private LocalDateTime paidAt;
     
-    @Column(length = 50)
+    @Column(name = "paymentMethod", length = 50)
     private String paymentMethod;
     
-    @Column(unique = true)
+    @Column(name = "transactionId", unique = true)
     private String transactionId;
 }
