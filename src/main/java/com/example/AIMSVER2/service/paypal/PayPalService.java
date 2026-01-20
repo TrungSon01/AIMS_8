@@ -21,11 +21,22 @@ public class PayPalService {
     private final PayPalConfig payPalConfig;
     
     private APIContext getApiContext() {
-        return new APIContext(
+        // Log để debug
+        log.debug("PayPal Config - ClientId: {}, Mode: {}", 
+            payPalConfig.getClientId() != null ? payPalConfig.getClientId().substring(0, Math.min(10, payPalConfig.getClientId().length())) + "..." : "NULL",
+            payPalConfig.getMode());
+        
+        if (payPalConfig.getClientId() == null || payPalConfig.getClientSecret() == null) {
+            throw new IllegalStateException("PayPal credentials are not configured. Please check application.properties");
+        }
+        
+        APIContext apiContext = new APIContext(
             payPalConfig.getClientId(),
             payPalConfig.getClientSecret(),
             payPalConfig.getMode()
         );
+        
+        return apiContext;
     }
     
     /**
