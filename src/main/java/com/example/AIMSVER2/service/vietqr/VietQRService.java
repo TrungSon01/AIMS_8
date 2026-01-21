@@ -114,9 +114,17 @@ public class VietQRService {
             );
             
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                VietQRGenerateResponse qrResponse = response.getBody();
                 log.info("VietQR QR code generated successfully for order: {}", orderId);
-                return response.getBody();
+                log.info("QR Response details - qrLink: {}, qrCode length: {}, bankName: {}, bankAccount: {}", 
+                    qrResponse.getQrLink() != null ? qrResponse.getQrLink() : "NULL",
+                    qrResponse.getQrCode() != null ? qrResponse.getQrCode().length() : 0,
+                    qrResponse.getBankName(),
+                    qrResponse.getBankAccount());
+                return qrResponse;
             } else {
+                log.error("Failed to generate VietQR QR code - Status: {}, Body: {}", 
+                    response.getStatusCode(), response.getBody());
                 throw new RuntimeException("Failed to generate VietQR QR code: " + response.getStatusCode());
             }
             

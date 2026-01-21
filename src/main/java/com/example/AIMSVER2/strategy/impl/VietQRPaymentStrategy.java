@@ -41,6 +41,13 @@ public class VietQRPaymentStrategy implements PaymentStrategy {
                 String.valueOf(request.getOrderId())
             );
             
+            // Log để debug
+            log.info("VietQR Response - qrLink: {}, qrCode: {}, bankName: {}, bankAccount: {}", 
+                qrResponse.getQrLink() != null ? qrResponse.getQrLink().substring(0, Math.min(50, qrResponse.getQrLink().length())) + "..." : "NULL",
+                qrResponse.getQrCode() != null ? "PRESENT" : "NULL",
+                qrResponse.getBankName(),
+                qrResponse.getBankAccount());
+            
             // Convert amount từ VND sang BigDecimal (nếu cần)
             // VietQR trả về amount là String (VND), nhưng request có thể là USD
             // Giữ nguyên amount từ request
@@ -50,8 +57,8 @@ public class VietQRPaymentStrategy implements PaymentStrategy {
                 .amount(request.getAmount())
                 .description(request.getDescription())
                 .paymentMethod("VIETQR")
-                .qrCodeUrl(qrResponse.getQrLink()) // URL để hiển thị QR code
-                .qrCode(qrResponse.getQrCode()) // QR code string (raw data)
+                .qrCodeUrl(qrResponse.getQrLink()) // URL để hiển thị QR code page
+                .qrCode(qrResponse.getQrCode()) // QR code string (base64 image data)
                 .transactionId(qrResponse.getTransactionRefId()) // Transaction reference ID từ VietQR
                 .createdAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(15)); // QR code thường expire sau 15 phút
