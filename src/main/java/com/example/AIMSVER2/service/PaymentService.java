@@ -52,6 +52,17 @@ public class PaymentService {
         payment.setCreatedAt(LocalDateTime.now());
         payment.setExpiresAt(paymentResponse.getExpiresAt());
         
+        // Lưu thông tin bổ sung cho VietQR (nếu có)
+        if ("VIETQR".equals(request.getPaymentMethod()) && paymentResponse.getDescription() != null) {
+            // Có thể lưu thêm thông tin bank vào description hoặc tạo bảng riêng
+            String descriptionWithBank = paymentResponse.getDescription();
+            if (paymentResponse.getBankName() != null) {
+                descriptionWithBank += String.format(" | Bank: %s, Account: %s", 
+                    paymentResponse.getBankName(), paymentResponse.getBankAccount());
+            }
+            payment.setDescription(descriptionWithBank);
+        }
+        
         // Generate payment code
         String paymentCode = generatePaymentCode(request.getPaymentMethod());
         payment.setPaymentCode(paymentCode);

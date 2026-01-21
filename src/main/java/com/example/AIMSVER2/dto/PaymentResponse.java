@@ -23,6 +23,9 @@ public class PaymentResponse {
     private String transactionId;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
-    private String qrCodeUrl; // Cho VietQR
+    private String qrCodeUrl; // Cho VietQR - URL để hiển thị QR code
+    private String qrCode; // Cho VietQR - QR code string (raw data)
+    private String bankName; // Cho VietQR - Tên ngân hàng
+    private String bankAccount; // Cho VietQR - Số tài khoản
     private String message;
 }
