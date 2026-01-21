@@ -56,7 +56,8 @@ public class VietQRService {
             
             HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(body, headers);
             
-            String url = vietQRConfig.getApiUrl() + "/token_generate";
+            // Token API dùng dev.vietqr.org
+            String url = vietQRConfig.getTokenApiUrl() + "/token_generate";
             
             ResponseEntity<VietQRTokenResponse> response = restTemplate.postForEntity(
                 url,
@@ -103,7 +104,8 @@ public class VietQRService {
             
             HttpEntity<VietQRGenerateRequest> httpEntity = new HttpEntity<>(request, headers);
             
-            String url = vietQRConfig.getApiUrl() + "/qr/generate-customer";
+            // QR Generate API dùng api.vietqr.org
+            String url = vietQRConfig.getQrApiUrl() + "/qr/generate-customer";
             
             ResponseEntity<VietQRGenerateResponse> response = restTemplate.postForEntity(
                 url,

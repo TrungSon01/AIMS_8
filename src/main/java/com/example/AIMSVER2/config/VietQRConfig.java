@@ -13,7 +13,8 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "vietqr")
 public class VietQRConfig {
-    private String apiUrl = "https://dev.vietqr.org/vqr/api";
+    private String tokenApiUrl = "https://dev.vietqr.org/vqr/api"; // URL để lấy token
+    private String qrApiUrl = "https://api.vietqr.org/vqr/api"; // URL để generate QR code
     private String clientId;
     private String clientSecret;
     private String bankCode;
@@ -23,7 +24,7 @@ public class VietQRConfig {
     
     @PostConstruct
     public void init() {
-        log.info("VietQR Config initialized - API URL: {}, Bank: {}, Account: {}", 
-            apiUrl, bankCode, bankAccount != null ? "***CONFIGURED***" : "NULL");
+        log.info("VietQR Config initialized - Token API: {}, QR API: {}, Bank: {}, Account: {}", 
+            tokenApiUrl, qrApiUrl, bankCode, bankAccount != null ? "***CONFIGURED***" : "NULL");
     }
 }
