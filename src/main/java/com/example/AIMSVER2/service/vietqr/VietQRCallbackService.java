@@ -48,10 +48,22 @@ public class VietQRCallbackService {
         Optional<Payment> paymentOpt = findPaymentByCallback(callbackRequest);
         
         if (paymentOpt.isEmpty()) {
-            log.warn("Payment not found for callback: bankAccount={}, amount={}, content={}",
+            log.warn("Payment not found for callback: bankAccount={}, amount={}, content={}, bankCode={}",
                 callbackRequest.getBankAccount(),
                 callbackRequest.getAmount(),
-                callbackRequest.getContent());
+                callbackRequest.getContent(),
+                callbackRequest.getBankCode());
+            
+            // Log tất cả payments VIETQR PENDING để debug
+            List<Payment> allPendingPayments = paymentRepository.findAll().stream()
+                .filter(p -> "VIETQR".equals(p.getPaymentMethod()))
+                .filter(p -> "PENDING".equals(p.getStatus()))
+                .toList();
+            
+            log.warn("Available PENDING VIETQR payments in DB: {}", allPendingPayments.size());
+            allPendingPayments.forEach(p -> log.warn("  - Payment ID: {}, Amount: {} USD, Description: {}, TransactionId: {}",
+                p.getId(), p.getAmount(), p.getDescription(), p.getTransactionId()));
+            
             return false;
         }
         
@@ -127,23 +139,41 @@ public class VietQRCallbackService {
         
         // Tìm theo amount và content (convert VND sang USD để so sánh)
         BigDecimal amountInUSD = convertVndToUsd(callbackRequest.getAmount());
+        log.info("Searching payments: amount={} VND ({} USD), content={}, bankAccount={}, bankCode={}",
+            callbackRequest.getAmount(), amountInUSD, callbackRequest.getContent(),
+            callbackRequest.getBankAccount(), callbackRequest.getBankCode());
+        
         List<Payment> allPayments = paymentRepository.findAll().stream()
             .filter(p -> "VIETQR".equals(p.getPaymentMethod()))
             .filter(p -> "PENDING".equals(p.getStatus()))
+            .peek(p -> log.debug("Checking payment: id={}, amount={}, description={}, status={}",
+                p.getId(), p.getAmount(), p.getDescription(), p.getStatus()))
             .filter(p -> matchesAmount(callbackRequest.getAmount(), p.getAmount(), amountInUSD))
+            .peek(p -> log.debug("Payment {} passed amount check", p.getId()))
             .filter(p -> matchesContent(callbackRequest.getContent(), p.getDescription()))
+            .peek(p -> log.debug("Payment {} passed content check", p.getId()))
             .toList();
         
+        log.info("Found {} payment(s) matching amount and content", allPayments.size());
+        
         if (!allPayments.isEmpty()) {
-            log.info("Found {} payment(s) by amount and content", allPayments.size());
             // Nếu có nhiều payment khớp, ưu tiên payment có bankAccount trong description
-            return allPayments.stream()
+            Optional<Payment> byBankAccount = allPayments.stream()
                 .filter(p -> p.getDescription() != null && 
                     p.getDescription().contains(callbackRequest.getBankAccount()))
-                .findFirst()
-                .or(() -> allPayments.stream().findFirst());
+                .findFirst();
+            
+            if (byBankAccount.isPresent()) {
+                log.info("Found payment by bankAccount match: paymentId={}", byBankAccount.get().getId());
+                return byBankAccount;
+            }
+            
+            // Nếu không có match theo bankAccount, lấy payment đầu tiên
+            log.info("Using first matching payment: paymentId={}", allPayments.get(0).getId());
+            return Optional.of(allPayments.get(0));
         }
         
+        log.warn("No payment found matching all criteria");
         return Optional.empty();
     }
     
@@ -166,10 +196,16 @@ public class VietQRCallbackService {
         }
         
         // Kiểm tra content/description (cho phép không khớp hoàn toàn vì có thể có thêm thông tin)
+        // Content từ callback có thể có prefix, nên cần extract phần thực sự
+        String extractedContent = extractActualContent(callbackRequest.getContent());
         if (!matchesContent(callbackRequest.getContent(), payment.getDescription())) {
-            log.warn("Content mismatch: callback={}, payment={}",
-                callbackRequest.getContent(), payment.getDescription());
+            log.warn("Content mismatch: callback={}, extracted={}, payment={}",
+                callbackRequest.getContent(), extractedContent, payment.getDescription());
             // Không return false ngay, chỉ log warning vì description có thể có thêm thông tin
+            // Nhưng nếu đã tìm được payment ở bước trên thì có thể chấp nhận
+        } else {
+            log.info("Content matched: callback={}, extracted={}, payment={}",
+                callbackRequest.getContent(), extractedContent, payment.getDescription());
         }
         
         // Kiểm tra transType phải là "C" (Credit - nhận tiền)
@@ -206,13 +242,56 @@ public class VietQRCallbackService {
     
     /**
      * So sánh content/description (cho phép description có thêm thông tin)
+     * Content từ callback có thể có prefix như "VQR26044A327PVJX THANH TOAN HOA DON"
+     * Cần extract phần content thực sự để so sánh
      */
     private boolean matchesContent(String callbackContent, String paymentDescription) {
         if (callbackContent == null || paymentDescription == null) {
             return false;
         }
-        // Description có thể chứa callbackContent + thêm thông tin khác
-        return paymentDescription.contains(callbackContent) || callbackContent.contains(paymentDescription);
+        
+        // Extract phần content thực sự (bỏ prefix nếu có)
+        // Ví dụ: "VQR26044A327PVJX THANH TOAN HOA DON" -> "THANH TOAN HOA DON"
+        String actualContent = extractActualContent(callbackContent);
+        
+        // So sánh: description có thể chứa actualContent hoặc ngược lại
+        boolean matches = paymentDescription.contains(actualContent) || actualContent.contains(paymentDescription);
+        
+        if (!matches) {
+            log.debug("Content comparison: callback={}, extracted={}, payment={}, match={}",
+                callbackContent, actualContent, paymentDescription, matches);
+        }
+        
+        return matches;
+    }
+    
+    /**
+     * Extract phần content thực sự từ callback content
+     * Content có thể có format: "VQR26044A327PVJX THANH TOAN HOA DON"
+     * Hoặc chỉ có: "THANH TOAN HOA DON"
+     */
+    private String extractActualContent(String callbackContent) {
+        if (callbackContent == null || callbackContent.isEmpty()) {
+            return "";
+        }
+        
+        // Nếu content có prefix dạng "VQR..." hoặc transaction ID, extract phần sau
+        // Tìm vị trí khoảng trắng đầu tiên sau prefix (nếu có)
+        String trimmed = callbackContent.trim();
+        
+        // Nếu bắt đầu bằng "VQR" và có khoảng trắng, lấy phần sau khoảng trắng
+        if (trimmed.startsWith("VQR") && trimmed.length() > 15) {
+            // Tìm khoảng trắng đầu tiên sau prefix (thường prefix dài ~15-20 ký tự)
+            int spaceIndex = trimmed.indexOf(' ', 10); // Tìm từ vị trí 10 trở đi
+            if (spaceIndex > 0 && spaceIndex < trimmed.length() - 1) {
+                String extracted = trimmed.substring(spaceIndex + 1).trim();
+                log.debug("Extracted content from '{}' to '{}'", callbackContent, extracted);
+                return extracted;
+            }
+        }
+        
+        // Nếu không có prefix, trả về nguyên content
+        return trimmed;
     }
     
     /**

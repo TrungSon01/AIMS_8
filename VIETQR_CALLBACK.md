@@ -117,7 +117,7 @@ Backend sẽ đối chiếu:
 
 ### 1. Test với VietQR Test API
 
-Gửi request test đến VietQR để trigger callback:
+Gửi request test đến VietQR để trigger callback. **Theo documentation VietQR:**
 
 ```bash
 curl -X POST https://dev.vietqr.org/vqr/bank/api/test/transaction-callback \
@@ -131,7 +131,15 @@ curl -X POST https://dev.vietqr.org/vqr/bank/api/test/transaction-callback \
   }'
 ```
 
-VietQR sẽ giả lập giao dịch và gọi callback về endpoint của bạn.
+**Lưu ý quan trọng:**
+- `content` phải **khớp chính xác** với `content` từ response khi tạo QR code
+- `amount` phải **khớp chính xác** với `amount` từ response khi tạo QR code (với dynamic QR - qrType = 0)
+- `content` phải là tiếng Việt **không dấu** và tối đa 23 ký tự
+- `amount` là số tiền VND (Long, số nguyên)
+- `transType` mặc định là `"C"` (có thể là `"D"` hoặc `"C"`)
+- `callbackUrl` **KHÔNG** cần trong request body (có thể được cấu hình ở VietQR dashboard)
+
+VietQR sẽ giả lập giao dịch và gọi callback về endpoint đã được cấu hình.
 
 ### 2. Test trực tiếp endpoint callback
 
