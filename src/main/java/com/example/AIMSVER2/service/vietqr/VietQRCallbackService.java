@@ -40,14 +40,15 @@ public class VietQRCallbackService {
             return false;
         }
         
-        log.info("Received VietQR callback: bankAccount={}, amount={}, content={}, transType={}, bankCode={}, transactionId={}, transactionRefId={}, orderId={}",
+        log.info("Received VietQR callback: bankAccount={}, amount={}, content={}, transType={}, bankCode={}, transactionId={}, referenceNumber={}, transactionTime={}, orderId={}",
             callbackRequest.getBankAccount() != null ? callbackRequest.getBankAccount() : "NULL",
             callbackRequest.getAmount() != null ? callbackRequest.getAmount() : "NULL",
             callbackRequest.getContent() != null ? callbackRequest.getContent() : "NULL",
             callbackRequest.getTransType() != null ? callbackRequest.getTransType() : "NULL",
             callbackRequest.getBankCode() != null ? callbackRequest.getBankCode() : "NULL",
             callbackRequest.getTransactionId() != null ? callbackRequest.getTransactionId() : "NULL",
-            callbackRequest.getTransactionRefId() != null ? callbackRequest.getTransactionRefId() : "NULL",
+            callbackRequest.getReferenceNumber() != null ? callbackRequest.getReferenceNumber() : "NULL",
+            callbackRequest.getTransactionTime() != null ? callbackRequest.getTransactionTime() : "NULL",
             callbackRequest.getOrderId() != null ? callbackRequest.getOrderId() : "NULL");
         
         // Tìm payment dựa trên các thông tin
@@ -115,11 +116,12 @@ public class VietQRCallbackService {
             }
         }
         
-        if (callbackRequest.getTransactionRefId() != null && !callbackRequest.getTransactionRefId().isEmpty()) {
-            Optional<Payment> byTransactionRefId = paymentRepository.findByTransactionId(callbackRequest.getTransactionRefId());
-            if (byTransactionRefId.isPresent()) {
-                log.info("Found payment by transactionRefId: {}", callbackRequest.getTransactionRefId());
-                return byTransactionRefId;
+        // Tìm theo referenceNumber (mã giao dịch)
+        if (callbackRequest.getReferenceNumber() != null && !callbackRequest.getReferenceNumber().isEmpty()) {
+            Optional<Payment> byReferenceNumber = paymentRepository.findByTransactionId(callbackRequest.getReferenceNumber());
+            if (byReferenceNumber.isPresent()) {
+                log.info("Found payment by referenceNumber: {}", callbackRequest.getReferenceNumber());
+                return byReferenceNumber;
             }
         }
         
@@ -133,8 +135,11 @@ public class VietQRCallbackService {
                 if (!payments.isEmpty()) {
                     log.info("Found {} payment(s) by orderId: {}", payments.size(), orderId);
                     // Tìm payment khớp nhất với amount và content
+                    BigDecimal amountVnd = callbackRequest.getAmount() != null ? 
+                        BigDecimal.valueOf(callbackRequest.getAmount()) : null;
+                    BigDecimal amountInUSD = convertVndToUsd(amountVnd);
                     return payments.stream()
-                        .filter(p -> p.getAmount() != null && matchesAmount(callbackRequest.getAmount(), p.getAmount()))
+                        .filter(p -> p.getAmount() != null && amountVnd != null && matchesAmount(amountVnd, p.getAmount(), amountInUSD))
                         .filter(p -> p.getDescription() != null && matchesContent(callbackRequest.getContent(), p.getDescription()))
                         .findFirst();
                 }
@@ -155,7 +160,10 @@ public class VietQRCallbackService {
             return Optional.empty();
         }
         
-        BigDecimal amountInUSD = convertVndToUsd(callbackRequest.getAmount());
+        // Convert Long amount to BigDecimal for comparison
+        BigDecimal amountVnd = callbackRequest.getAmount() != null ? 
+            BigDecimal.valueOf(callbackRequest.getAmount()) : null;
+        BigDecimal amountInUSD = convertVndToUsd(amountVnd);
         log.info("Searching payments: amount={} VND ({} USD), content={}, bankAccount={}, bankCode={}",
             callbackRequest.getAmount(), amountInUSD, 
             callbackRequest.getContent() != null ? callbackRequest.getContent() : "NULL",
@@ -169,7 +177,7 @@ public class VietQRCallbackService {
                 p.getId(), p.getAmount(), 
                 p.getDescription() != null ? p.getDescription() : "NULL", 
                 p.getStatus()))
-            .filter(p -> p.getAmount() != null && matchesAmount(callbackRequest.getAmount(), p.getAmount(), amountInUSD))
+            .filter(p -> p.getAmount() != null && amountVnd != null && matchesAmount(amountVnd, p.getAmount(), amountInUSD))
             .peek(p -> log.debug("Payment {} passed amount check", p.getId()))
             .filter(p -> p.getDescription() != null && matchesContent(callbackRequest.getContent(), p.getDescription()))
             .peek(p -> log.debug("Payment {} passed content check", p.getId()))
@@ -232,8 +240,10 @@ public class VietQRCallbackService {
             return false;
         }
         
-        BigDecimal amountInUSD = convertVndToUsd(callbackRequest.getAmount());
-        if (!matchesAmount(callbackRequest.getAmount(), payment.getAmount(), amountInUSD)) {
+        // Convert Long amount to BigDecimal
+        BigDecimal amountVnd = BigDecimal.valueOf(callbackRequest.getAmount());
+        BigDecimal amountInUSD = convertVndToUsd(amountVnd);
+        if (!matchesAmount(amountVnd, payment.getAmount(), amountInUSD)) {
             log.warn("Amount mismatch: callback={} VND ({} USD), payment={} USD",
                 callbackRequest.getAmount(), amountInUSD, payment.getAmount());
             return false;
