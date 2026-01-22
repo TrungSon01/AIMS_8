@@ -57,8 +57,8 @@ public class VietQRPaymentStrategy implements PaymentStrategy {
                 .amount(request.getAmount())
                 .description(request.getDescription())
                 .paymentMethod("VIETQR")
-                .qrCodeUrl(qrResponse.getQrLink()) // URL để hiển thị QR code page
-                .qrCode(qrResponse.getQrCode()) // QR code string (base64 image data)
+                .qrCodeUrl(qrResponse.getQrLink()) // URL để hiển thị QR code page (https://pro.vietqr.vn/qr-generated?token=...)
+                .qrCode(qrResponse.getQrCode()) // QR code data string (EMV format, not base64 image)
                 .transactionId(qrResponse.getTransactionRefId()) // Transaction reference ID từ VietQR
                 .createdAt(LocalDateTime.now())
                 .expiresAt(LocalDateTime.now().plusMinutes(15)); // QR code thường expire sau 15 phút
