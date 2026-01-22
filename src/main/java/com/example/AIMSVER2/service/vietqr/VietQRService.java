@@ -84,9 +84,14 @@ public class VietQRService {
     
     /**
      * Generate QR code từ VietQR API
+     * 
+     * @param amount Số tiền (VND)
+     * @param content Nội dung thanh toán
+     * @param orderId Order ID (chỉ dùng cho logging, không gửi tới VietQR API)
      */
     public VietQRGenerateResponse generateQRCode(BigDecimal amount, String content, String orderId) {
         try {
+            log.info("Generating VietQR QR code for order: {}, amount: {} VND, content: {}", orderId, amount, content);
             String accessToken = getAccessToken();
             
             HttpHeaders headers = new HttpHeaders();
@@ -99,7 +104,10 @@ public class VietQRService {
                 .userBankName(vietQRConfig.getUserBankName())
                 .amount(String.valueOf(amount.intValue())) // VietQR API yêu cầu amount là số nguyên (VND)
                 .content(content)
-                .orderId(orderId)
+                // KHÔNG gửi orderId vì VietQR API có thể sử dụng nó như một constant/enum
+                // và giá trị orderId tùy ý (như 530) không nằm trong danh sách hợp lệ
+                // Payment sẽ được match qua amount, content, bankAccount trong callback
+                // .orderId(orderId)
                 .build();
             
             HttpEntity<VietQRGenerateRequest> httpEntity = new HttpEntity<>(request, headers);
