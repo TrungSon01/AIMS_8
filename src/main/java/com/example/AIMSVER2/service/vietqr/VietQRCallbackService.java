@@ -267,30 +267,31 @@ public class VietQRCallbackService {
     
     /**
      * Extract phần content thực sự từ callback content
-     * Content có thể có format: "VQR26044A327PVJX THANH TOAN HOA DON"
+     * Content có thể có format: "VQR26044A5CCKYZA THANH TOAN HOA DON"
      * Hoặc chỉ có: "THANH TOAN HOA DON"
+     * Prefix thường có format: "VQR" + 13 ký tự alphanumeric = 16 ký tự
      */
     private String extractActualContent(String callbackContent) {
         if (callbackContent == null || callbackContent.isEmpty()) {
             return "";
         }
         
-        // Nếu content có prefix dạng "VQR..." hoặc transaction ID, extract phần sau
-        // Tìm vị trí khoảng trắng đầu tiên sau prefix (nếu có)
         String trimmed = callbackContent.trim();
         
-        // Nếu bắt đầu bằng "VQR" và có khoảng trắng, lấy phần sau khoảng trắng
-        if (trimmed.startsWith("VQR") && trimmed.length() > 15) {
-            // Tìm khoảng trắng đầu tiên sau prefix (thường prefix dài ~15-20 ký tự)
-            int spaceIndex = trimmed.indexOf(' ', 10); // Tìm từ vị trí 10 trở đi
+        // Nếu bắt đầu bằng "VQR" và có khoảng trắng, extract phần sau prefix
+        // Prefix format: "VQR" + 13 ký tự = 16 ký tự, sau đó là khoảng trắng
+        if (trimmed.startsWith("VQR") && trimmed.length() > 16) {
+            // Tìm khoảng trắng đầu tiên sau vị trí 16 (sau prefix)
+            int spaceIndex = trimmed.indexOf(' ', 16);
             if (spaceIndex > 0 && spaceIndex < trimmed.length() - 1) {
                 String extracted = trimmed.substring(spaceIndex + 1).trim();
-                log.debug("Extracted content from '{}' to '{}'", callbackContent, extracted);
+                log.info("Extracted content: '{}' -> '{}'", callbackContent, extracted);
                 return extracted;
             }
         }
         
-        // Nếu không có prefix, trả về nguyên content
+        // Nếu không có prefix hoặc không tìm thấy khoảng trắng, trả về nguyên content
+        log.debug("No prefix found, using original content: '{}'", trimmed);
         return trimmed;
     }
     
