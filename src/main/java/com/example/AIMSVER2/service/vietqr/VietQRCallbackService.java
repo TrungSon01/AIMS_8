@@ -180,6 +180,8 @@ public class VietQRCallbackService {
         if (!allPayments.isEmpty()) {
             // Nếu có nhiều payment khớp, ưu tiên payment có bankAccount trong description
             // Chỉ filter nếu bankAccount không null
+            // Nếu có nhiều payment khớp, ưu tiên payment có bankAccount trong description
+            // Chỉ filter nếu bankAccount không null
             if (callbackRequest.getBankAccount() != null && !callbackRequest.getBankAccount().isEmpty()) {
                 Optional<Payment> byBankAccount = allPayments.stream()
                     .filter(p -> p.getDescription() != null && 
@@ -190,11 +192,6 @@ public class VietQRCallbackService {
                     log.info("Found payment by bankAccount match: paymentId={}", byBankAccount.get().getId());
                     return byBankAccount;
                 }
-            }
-            
-            if (byBankAccount.isPresent()) {
-                log.info("Found payment by bankAccount match: paymentId={}", byBankAccount.get().getId());
-                return byBankAccount;
             }
             
             // Nếu không có match theo bankAccount, lấy payment đầu tiên
