@@ -30,16 +30,26 @@ public class VietQRCallbackController {
     public ResponseEntity<VietQRCallbackResponse> handleTransactionSync(
             @RequestBody VietQRCallbackRequest request) {
         
+        // Validate request không null
+        if (request == null) {
+            log.error("Request body is null");
+            VietQRCallbackResponse response = VietQRCallbackResponse.builder()
+                .code("99")
+                .message("Request body is null")
+                .build();
+            return ResponseEntity.badRequest().body(response);
+        }
+        
         log.info("=== VietQR Callback Received ===");
-        log.info("Bank Account: {}", request.getBankAccount());
-        log.info("Amount: {} VND", request.getAmount());
-        log.info("Content: {}", request.getContent());
-        log.info("Transaction Type: {}", request.getTransType());
-        log.info("Bank Code: {}", request.getBankCode());
-        log.info("Transaction ID: {}", request.getTransactionId());
-        log.info("Transaction Ref ID: {}", request.getTransactionRefId());
-        log.info("Order ID: {}", request.getOrderId());
-        log.info("Timestamp: {}", request.getTimestamp());
+        log.info("Bank Account: {}", request.getBankAccount() != null ? request.getBankAccount() : "NULL");
+        log.info("Amount: {} VND", request.getAmount() != null ? request.getAmount() : "NULL");
+        log.info("Content: {}", request.getContent() != null ? request.getContent() : "NULL");
+        log.info("Transaction Type: {}", request.getTransType() != null ? request.getTransType() : "NULL");
+        log.info("Bank Code: {}", request.getBankCode() != null ? request.getBankCode() : "NULL");
+        log.info("Transaction ID: {}", request.getTransactionId() != null ? request.getTransactionId() : "NULL");
+        log.info("Transaction Ref ID: {}", request.getTransactionRefId() != null ? request.getTransactionRefId() : "NULL");
+        log.info("Order ID: {}", request.getOrderId() != null ? request.getOrderId() : "NULL");
+        log.info("Timestamp: {}", request.getTimestamp() != null ? request.getTimestamp() : "NULL");
         log.info("=================================");
         
         try {

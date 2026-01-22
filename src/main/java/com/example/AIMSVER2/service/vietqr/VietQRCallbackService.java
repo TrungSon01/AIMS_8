@@ -34,15 +34,21 @@ public class VietQRCallbackService {
      */
     @Transactional
     public boolean processCallback(VietQRCallbackRequest callbackRequest) {
+        // Validate request không null
+        if (callbackRequest == null) {
+            log.error("Callback request is null");
+            return false;
+        }
+        
         log.info("Received VietQR callback: bankAccount={}, amount={}, content={}, transType={}, bankCode={}, transactionId={}, transactionRefId={}, orderId={}",
-            callbackRequest.getBankAccount(),
-            callbackRequest.getAmount(),
-            callbackRequest.getContent(),
-            callbackRequest.getTransType(),
-            callbackRequest.getBankCode(),
-            callbackRequest.getTransactionId(),
-            callbackRequest.getTransactionRefId(),
-            callbackRequest.getOrderId());
+            callbackRequest.getBankAccount() != null ? callbackRequest.getBankAccount() : "NULL",
+            callbackRequest.getAmount() != null ? callbackRequest.getAmount() : "NULL",
+            callbackRequest.getContent() != null ? callbackRequest.getContent() : "NULL",
+            callbackRequest.getTransType() != null ? callbackRequest.getTransType() : "NULL",
+            callbackRequest.getBankCode() != null ? callbackRequest.getBankCode() : "NULL",
+            callbackRequest.getTransactionId() != null ? callbackRequest.getTransactionId() : "NULL",
+            callbackRequest.getTransactionRefId() != null ? callbackRequest.getTransactionRefId() : "NULL",
+            callbackRequest.getOrderId() != null ? callbackRequest.getOrderId() : "NULL");
         
         // Tìm payment dựa trên các thông tin
         Optional<Payment> paymentOpt = findPaymentByCallback(callbackRequest);
@@ -89,8 +95,8 @@ public class VietQRCallbackService {
         
         log.info("Payment updated successfully: paymentId={}, paymentCode={}, orderId={}, amount={}, status=COMPLETED",
             payment.getId(),
-            payment.getPaymentCode(),
-            payment.getOrder().getId(),
+            payment.getPaymentCode() != null ? payment.getPaymentCode() : "NULL",
+            payment.getOrder() != null ? payment.getOrder().getId() : "NULL",
             payment.getAmount());
         
         return true;
@@ -128,8 +134,8 @@ public class VietQRCallbackService {
                     log.info("Found {} payment(s) by orderId: {}", payments.size(), orderId);
                     // Tìm payment khớp nhất với amount và content
                     return payments.stream()
-                        .filter(p -> matchesAmount(callbackRequest.getAmount(), p.getAmount()))
-                        .filter(p -> matchesContent(callbackRequest.getContent(), p.getDescription()))
+                        .filter(p -> p.getAmount() != null && matchesAmount(callbackRequest.getAmount(), p.getAmount()))
+                        .filter(p -> p.getDescription() != null && matchesContent(callbackRequest.getContent(), p.getDescription()))
                         .findFirst();
                 }
             } catch (NumberFormatException e) {
@@ -138,19 +144,34 @@ public class VietQRCallbackService {
         }
         
         // Tìm theo amount và content (convert VND sang USD để so sánh)
+        // Validate required fields trước
+        if (callbackRequest.getAmount() == null) {
+            log.warn("Amount is null in callback request");
+            return Optional.empty();
+        }
+        
+        if (callbackRequest.getContent() == null || callbackRequest.getContent().isEmpty()) {
+            log.warn("Content is null or empty in callback request");
+            return Optional.empty();
+        }
+        
         BigDecimal amountInUSD = convertVndToUsd(callbackRequest.getAmount());
         log.info("Searching payments: amount={} VND ({} USD), content={}, bankAccount={}, bankCode={}",
-            callbackRequest.getAmount(), amountInUSD, callbackRequest.getContent(),
-            callbackRequest.getBankAccount(), callbackRequest.getBankCode());
+            callbackRequest.getAmount(), amountInUSD, 
+            callbackRequest.getContent() != null ? callbackRequest.getContent() : "NULL",
+            callbackRequest.getBankAccount() != null ? callbackRequest.getBankAccount() : "NULL",
+            callbackRequest.getBankCode() != null ? callbackRequest.getBankCode() : "NULL");
         
         List<Payment> allPayments = paymentRepository.findAll().stream()
-            .filter(p -> "VIETQR".equals(p.getPaymentMethod()))
-            .filter(p -> "PENDING".equals(p.getStatus()))
+            .filter(p -> p.getPaymentMethod() != null && "VIETQR".equals(p.getPaymentMethod()))
+            .filter(p -> p.getStatus() != null && "PENDING".equals(p.getStatus()))
             .peek(p -> log.debug("Checking payment: id={}, amount={}, description={}, status={}",
-                p.getId(), p.getAmount(), p.getDescription(), p.getStatus()))
-            .filter(p -> matchesAmount(callbackRequest.getAmount(), p.getAmount(), amountInUSD))
+                p.getId(), p.getAmount(), 
+                p.getDescription() != null ? p.getDescription() : "NULL", 
+                p.getStatus()))
+            .filter(p -> p.getAmount() != null && matchesAmount(callbackRequest.getAmount(), p.getAmount(), amountInUSD))
             .peek(p -> log.debug("Payment {} passed amount check", p.getId()))
-            .filter(p -> matchesContent(callbackRequest.getContent(), p.getDescription()))
+            .filter(p -> p.getDescription() != null && matchesContent(callbackRequest.getContent(), p.getDescription()))
             .peek(p -> log.debug("Payment {} passed content check", p.getId()))
             .toList();
         
@@ -158,10 +179,18 @@ public class VietQRCallbackService {
         
         if (!allPayments.isEmpty()) {
             // Nếu có nhiều payment khớp, ưu tiên payment có bankAccount trong description
-            Optional<Payment> byBankAccount = allPayments.stream()
-                .filter(p -> p.getDescription() != null && 
-                    p.getDescription().contains(callbackRequest.getBankAccount()))
-                .findFirst();
+            // Chỉ filter nếu bankAccount không null
+            if (callbackRequest.getBankAccount() != null && !callbackRequest.getBankAccount().isEmpty()) {
+                Optional<Payment> byBankAccount = allPayments.stream()
+                    .filter(p -> p.getDescription() != null && 
+                        p.getDescription().contains(callbackRequest.getBankAccount()))
+                    .findFirst();
+                
+                if (byBankAccount.isPresent()) {
+                    log.info("Found payment by bankAccount match: paymentId={}", byBankAccount.get().getId());
+                    return byBankAccount;
+                }
+            }
             
             if (byBankAccount.isPresent()) {
                 log.info("Found payment by bankAccount match: paymentId={}", byBankAccount.get().getId());
@@ -181,13 +210,31 @@ public class VietQRCallbackService {
      * Đối chiếu thông tin payment với callback request
      */
     private boolean validatePayment(VietQRCallbackRequest callbackRequest, Payment payment) {
+        // Validate null checks
+        if (payment == null) {
+            log.warn("Payment is null");
+            return false;
+        }
+        
+        if (callbackRequest == null) {
+            log.warn("Callback request is null");
+            return false;
+        }
+        
         // Kiểm tra payment method phải là VIETQR
-        if (!"VIETQR".equals(payment.getPaymentMethod())) {
-            log.warn("Payment method mismatch: expected VIETQR, got {}", payment.getPaymentMethod());
+        if (payment.getPaymentMethod() == null || !"VIETQR".equals(payment.getPaymentMethod())) {
+            log.warn("Payment method mismatch: expected VIETQR, got {}", 
+                payment.getPaymentMethod() != null ? payment.getPaymentMethod() : "NULL");
             return false;
         }
         
         // Kiểm tra amount (cho phép sai số nhỏ do làm tròn)
+        if (callbackRequest.getAmount() == null || payment.getAmount() == null) {
+            log.warn("Amount is null: callback={}, payment={}", 
+                callbackRequest.getAmount() != null, payment.getAmount() != null);
+            return false;
+        }
+        
         BigDecimal amountInUSD = convertVndToUsd(callbackRequest.getAmount());
         if (!matchesAmount(callbackRequest.getAmount(), payment.getAmount(), amountInUSD)) {
             log.warn("Amount mismatch: callback={} VND ({} USD), payment={} USD",
@@ -197,25 +244,31 @@ public class VietQRCallbackService {
         
         // Kiểm tra content/description (cho phép không khớp hoàn toàn vì có thể có thêm thông tin)
         // Content từ callback có thể có prefix, nên cần extract phần thực sự
-        String extractedContent = extractActualContent(callbackRequest.getContent());
-        if (!matchesContent(callbackRequest.getContent(), payment.getDescription())) {
-            log.warn("Content mismatch: callback={}, extracted={}, payment={}",
-                callbackRequest.getContent(), extractedContent, payment.getDescription());
-            // Không return false ngay, chỉ log warning vì description có thể có thêm thông tin
-            // Nhưng nếu đã tìm được payment ở bước trên thì có thể chấp nhận
+        if (callbackRequest.getContent() == null || payment.getDescription() == null) {
+            log.warn("Content or description is null: callbackContent={}, paymentDescription={}",
+                callbackRequest.getContent() != null, payment.getDescription() != null);
+            // Không return false ngay, chỉ log warning
         } else {
-            log.info("Content matched: callback={}, extracted={}, payment={}",
-                callbackRequest.getContent(), extractedContent, payment.getDescription());
+            String extractedContent = extractActualContent(callbackRequest.getContent());
+            if (!matchesContent(callbackRequest.getContent(), payment.getDescription())) {
+                log.warn("Content mismatch: callback={}, extracted={}, payment={}",
+                    callbackRequest.getContent(), extractedContent, payment.getDescription());
+                // Không return false ngay, chỉ log warning vì description có thể có thêm thông tin
+            } else {
+                log.info("Content matched: callback={}, extracted={}, payment={}",
+                    callbackRequest.getContent(), extractedContent, payment.getDescription());
+            }
         }
         
         // Kiểm tra transType phải là "C" (Credit - nhận tiền)
-        if (!"C".equals(callbackRequest.getTransType())) {
-            log.warn("Invalid transType: expected C, got {}", callbackRequest.getTransType());
+        if (callbackRequest.getTransType() == null || !"C".equals(callbackRequest.getTransType())) {
+            log.warn("Invalid transType: expected C, got {}", 
+                callbackRequest.getTransType() != null ? callbackRequest.getTransType() : "NULL");
             return false;
         }
         
         // Kiểm tra bankCode và bankAccount (nếu có trong description)
-        if (payment.getDescription() != null && callbackRequest.getBankAccount() != null) {
+        if (payment.getDescription() != null && callbackRequest.getBankAccount() != null && !callbackRequest.getBankAccount().isEmpty()) {
             if (!payment.getDescription().contains(callbackRequest.getBankAccount())) {
                 log.warn("Bank account mismatch: callback={}, payment description={}",
                     callbackRequest.getBankAccount(), payment.getDescription());
@@ -230,11 +283,17 @@ public class VietQRCallbackService {
      * So sánh amount (cho phép sai số nhỏ)
      */
     private boolean matchesAmount(BigDecimal callbackAmountVnd, BigDecimal paymentAmountUsd) {
+        if (callbackAmountVnd == null || paymentAmountUsd == null) {
+            return false;
+        }
         BigDecimal callbackAmountUsd = convertVndToUsd(callbackAmountVnd);
         return matchesAmount(callbackAmountVnd, paymentAmountUsd, callbackAmountUsd);
     }
     
     private boolean matchesAmount(BigDecimal callbackAmountVnd, BigDecimal paymentAmountUsd, BigDecimal callbackAmountUsd) {
+        if (callbackAmountVnd == null || paymentAmountUsd == null || callbackAmountUsd == null) {
+            return false;
+        }
         // So sánh với sai số cho phép 0.01 USD (tương đương ~250 VND)
         BigDecimal difference = paymentAmountUsd.subtract(callbackAmountUsd).abs();
         return difference.compareTo(new BigDecimal("0.01")) <= 0;
@@ -301,6 +360,10 @@ public class VietQRCallbackService {
     private BigDecimal convertVndToUsd(BigDecimal amountVnd) {
         if (amountVnd == null) {
             return BigDecimal.ZERO;
+        }
+        if (vietQRConfig.getUsdToVndRate() == null || vietQRConfig.getUsdToVndRate() == 0) {
+            log.warn("USD to VND rate is null or zero, using default 25000");
+            return amountVnd.divide(BigDecimal.valueOf(25000.0), 2, RoundingMode.HALF_UP);
         }
         return amountVnd.divide(BigDecimal.valueOf(vietQRConfig.getUsdToVndRate()), 2, RoundingMode.HALF_UP);
     }
