@@ -3,39 +3,38 @@ package com.example.AIMSVER2.dto.vietqr;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
-import java.math.BigDecimal;
-
 /**
  * DTO cho callback request từ VietQR
+ * Format theo tài liệu VietQR transaction-sync API
  */
 @Data
 public class VietQRCallbackRequest {
     
-    @JsonProperty("bankAccount")
-    private String bankAccount;
-    
-    @JsonProperty("content")
-    private String content;
+    @JsonProperty("bankaccount")
+    private String bankAccount; // Tài khoản ngân hàng tạo mã thanh toán
     
     @JsonProperty("amount")
-    private BigDecimal amount; // Số tiền VND
+    private Long amount; // Số tiền giao dịch (VND) - Long type
     
     @JsonProperty("transType")
-    private String transType; // "C" = Credit (nhận tiền)
+    private String transType; // Phân loại giao dịch: "D" (Debit) hoặc "C" (Credit)
     
-    @JsonProperty("bankCode")
-    private String bankCode;
+    @JsonProperty("content")
+    private String content; // Nội dung chuyển tiền
     
-    // Các field có thể có thêm từ VietQR
-    @JsonProperty("transactionId")
-    private String transactionId;
+    @JsonProperty("transactionid")
+    private String transactionId; // ID của giao dịch
     
-    @JsonProperty("transactionRefId")
-    private String transactionRefId;
+    @JsonProperty("transactiontime")
+    private Long transactionTime; // Thời gian giao dịch (timestamp milliseconds)
+    
+    @JsonProperty("referencenumber")
+    private String referenceNumber; // Mã giao dịch
     
     @JsonProperty("orderId")
-    private String orderId;
+    private String orderId; // Mã đơn hàng
     
-    @JsonProperty("timestamp")
-    private String timestamp;
+    // Các trường bổ sung có thể có (không bắt buộc)
+    @JsonProperty("bankCode")
+    private String bankCode;
 }

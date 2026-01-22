@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
  * Controller xử lý callback từ VietQR
  */
 @RestController
-@RequestMapping("/bank/api")
+@RequestMapping("/vqr/bank/api")
 @RequiredArgsConstructor
 @Slf4j
 public class VietQRCallbackController {
@@ -34,8 +34,10 @@ public class VietQRCallbackController {
         if (request == null) {
             log.error("Request body is null");
             VietQRCallbackResponse response = VietQRCallbackResponse.builder()
-                .code("99")
-                .message("Request body is null")
+                .error(true)
+                .errorReason("99")
+                .toastMessage("Invalid request: Request body is null")
+                .object(null)
                 .build();
             return ResponseEntity.badRequest().body(response);
         }
@@ -47,9 +49,9 @@ public class VietQRCallbackController {
         log.info("Transaction Type: {}", request.getTransType() != null ? request.getTransType() : "NULL");
         log.info("Bank Code: {}", request.getBankCode() != null ? request.getBankCode() : "NULL");
         log.info("Transaction ID: {}", request.getTransactionId() != null ? request.getTransactionId() : "NULL");
-        log.info("Transaction Ref ID: {}", request.getTransactionRefId() != null ? request.getTransactionRefId() : "NULL");
+        log.info("Reference Number: {}", request.getReferenceNumber() != null ? request.getReferenceNumber() : "NULL");
+        log.info("Transaction Time: {}", request.getTransactionTime() != null ? request.getTransactionTime() : "NULL");
         log.info("Order ID: {}", request.getOrderId() != null ? request.getOrderId() : "NULL");
-        log.info("Timestamp: {}", request.getTimestamp() != null ? request.getTimestamp() : "NULL");
         log.info("=================================");
         
         try {
@@ -58,25 +60,41 @@ public class VietQRCallbackController {
             
             if (success) {
                 log.info("Transaction processed successfully");
+                // Lấy transactionId từ request để trả về trong object
+                String refTransactionId = request.getReferenceNumber() != null ? 
+                    request.getReferenceNumber() : 
+                    (request.getTransactionId() != null ? request.getTransactionId() : "N/A");
+                
+                VietQRCallbackResponse.ResponseObject responseObject = 
+                    VietQRCallbackResponse.ResponseObject.builder()
+                        .refTransactionId(refTransactionId)
+                        .build();
+                
                 VietQRCallbackResponse response = VietQRCallbackResponse.builder()
-                    .code("00")
-                    .message("Transaction processed successfully")
+                    .error(false)
+                    .errorReason("00")
+                    .toastMessage("Transaction processed successfully")
+                    .object(responseObject)
                     .build();
                 return ResponseEntity.ok(response);
             } else {
                 log.warn("Transaction processing failed - Payment not found or validation failed");
                 VietQRCallbackResponse response = VietQRCallbackResponse.builder()
-                    .code("01")
-                    .message("Transaction not found or validation failed")
+                    .error(true)
+                    .errorReason("01")
+                    .toastMessage("Transaction not found or validation failed")
+                    .object(null)
                     .build();
-                return ResponseEntity.status(HttpStatus.OK).body(response); // Vẫn trả 200 nhưng code khác 00
+                return ResponseEntity.ok(response); // Vẫn trả 200 nhưng error = true
             }
             
         } catch (Exception e) {
             log.error("Error processing VietQR callback: ", e);
             VietQRCallbackResponse response = VietQRCallbackResponse.builder()
-                .code("99")
-                .message("Internal server error: " + e.getMessage())
+                .error(true)
+                .errorReason("99")
+                .toastMessage("Internal server error: " + e.getMessage())
+                .object(null)
                 .build();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
